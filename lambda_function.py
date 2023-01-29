@@ -1,6 +1,6 @@
+# Navigate to the package/ directory before importing
 import os,sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "package"))
-
 
 import json
 import boto3
@@ -9,6 +9,8 @@ from botocore.exceptions import ClientError
 import datetime
 import pymysql
 import uuid
+
+print("Starting secrets manager connection...")
 
 # Secrets Manager connection
 secret_name = os.environ['DB_CREDENTIALS_SECRET_NAME']
@@ -24,32 +26,18 @@ try:
         SecretId=secret_name
     )
 except ClientError as e:
-    if e.response['Error']['Code'] == 'DecryptionFailureException':
-        # Secrets Manager can't decrypt the protected secret text using the provided KMS key.
-        # Deal with the exception here, and/or rethrow at your discretion.
-        raise e
-    elif e.response['Error']['Code'] == 'InternalServiceErrorException':
-        # An error occurred on the server side.
-        # Deal with the exception here, and/or rethrow at your discretion.
-        raise e
-    elif e.response['Error']['Code'] == 'InvalidParameterException':
-        # You provided an invalid value for a parameter.
-        # Deal with the exception here, and/or rethrow at your discretion.
-        raise e
-    elif e.response['Error']['Code'] == 'InvalidRequestException':
-        # You provided a parameter value that is not valid for the current state of the resource.
-        # Deal with the exception here, and/or rethrow at your discretion.
-        raise e
-    elif e.response['Error']['Code'] == 'ResourceNotFoundException':
-        # We can't find the resource that you asked for.
-        # Deal with the exception here, and/or rethrow at your discretion.
-        raise e
+    print(f"Caught exception while retriving secrets from Secrets Manager: {e}.  Exiting...")
+    exit()
 else:
     # Decrypts secret using the associated KMS key.
     secret = json.loads(get_secret_value_response['SecretString'])
 
+print("Got secrets.  Starting pinpoint connection...")
+
 # Pinpoint connection
 pinpoint = boto3.client('pinpoint')
+
+print("Pinpoint ok.  Starting DB connection...")
 
 # Database connection
 connection = pymysql.connect(host = secret['host'],
@@ -57,7 +45,9 @@ connection = pymysql.connect(host = secret['host'],
                              password = secret['password'],
                              database = secret['dbname'],
                              cursorclass=pymysql.cursors.DictCursor)
+print("Got connection ok.  Creating cursor...")
 cursor = connection.cursor()
+print("Created cursor")
 
 def sendMessage(requesterNumber, message):
     response = pinpoint.send_messages(
@@ -111,7 +101,7 @@ def lambda_handler(event, context):
                 'body': json.dumps('Invalid usage')
             } 
 
-        vehicleName = os.environ['DEFAULT_VEHICLE']
+        vehicleName = os.environ['DEFAULT_VEHICLE'] if 'DEFAULT_VEHICLE' in os.environ else ""
         notes = ""
 
     elif len(params) == 4:
@@ -133,7 +123,7 @@ def lambda_handler(event, context):
             distance = params[2] # Distance travelled in km
             notes = params[3]    # String with notes
 
-            vehicleName = os.environ['DEFAULT_VEHICLE']
+            vehicleName = os.environ['DEFAULT_VEHICLE'] if 'DEFAULT_VEHICLE' in os.environ else ""
 
         else:
             
