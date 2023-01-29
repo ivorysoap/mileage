@@ -51,7 +51,7 @@ Provision the following in AWS:
 
 * SMS number in AWS Pinpoint
 * SNS (Simple Notification Service) topic to process incoming messages - used to trigger the lambda function
-* Database using AWS RDS (I used MySQL)
+* Database using AWS RDS (I used MySQL) - see `table_create.sql` for creating the table
 * A VPC to connect everything together
 * An AWS lambda function.  This is where the script lives.  Upload the package you created earlier (`lambda_function.zip`) and have your SNS topic trigger the Lambda when an SMS is received.  Don't forget to set up environment variables in your Lambda (see below).
 
